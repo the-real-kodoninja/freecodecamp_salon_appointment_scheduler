@@ -1,6 +1,9 @@
 # freecodecamp_salon_appointment_scheduler
 
+![proof of completion](https://github.com/the-real-kodoninja/freecodecamp_salon_appointment_scheduler/blob/main/captureit_3-11-2025_at_06-58-10%20(1).png)
 
+the salon.sh is what passed... 
+the salon_revised.sh should pass, i just upgraded it quite a bit 😄
 
 Salon Appointment Scheduler
 Instructions
