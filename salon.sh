@@ -2,74 +2,67 @@
 
 PSQL="psql -X --username=freecodecamp --dbname=salon --tuples-only -c"
 
-echo -e "\n✂️ ~~~ Welcome to Glamour Haven Salon ~~~ ✂️\n"
-echo -e "Step right in! How can we pamper you today?\n"
+echo -e "\n~~~~~ MY SALON ~~~~~\n"
+echo -e "Welcome to My Salon, how can I help you?\n"
 
-# Function to display services with flair
-SHOW_SERVICES() {
-  echo -e "✨ Our Fabulous Offerings ✨"
+MAIN_MENU() {
+  if [[ $1 ]]; then
+    echo -e "\n$1"
+  fi
+
+  # Display services
+  echo "Here are the services we offer:"
   SERVICES=$($PSQL "SELECT service_id, name FROM services ORDER BY service_id")
   if [[ -z $SERVICES ]]; then
-    echo "Oops! It seems we’re fresh out of services today. Check back soon!"
+    echo "Sorry, we don't have any services right now."
   else
     echo "$SERVICES" | while read SERVICE_ID BAR SERVICE_NAME
     do
-      echo "  $SERVICE_ID) $SERVICE_NAME"
+      echo "$SERVICE_ID) $SERVICE_NAME"
     done
   fi
-}
 
-# Function to get a valid service ID with a while loop
-GET_SERVICE() {
-  while true; do
-    SHOW_SERVICES
-    echo -e "\nPick your treat (enter the number):"
-    read SERVICE_ID_SELECTED
-    if [[ ! $SERVICE_ID_SELECTED =~ ^[0-9]+$ ]]; then
-      echo -e "\nHmm, numbers only, please! Let’s try that again..."
+  # Prompt for service ID
+  echo -e "\nPlease enter a service ID:"
+  read SERVICE_ID_SELECTED
+
+  # Validate service ID
+  if [[ ! $SERVICE_ID_SELECTED =~ ^[0-9]+$ ]]; then
+    MAIN_MENU "Sorry, that is not a valid number! Please, choose again."
+  else
+    SERVICE_NAME=$($PSQL "SELECT name FROM services WHERE service_id=$SERVICE_ID_SELECTED" | xargs)
+    if [[ -z $SERVICE_NAME ]]; then
+      MAIN_MENU "I could not find that service. Please select a valid service."
     else
-      SERVICE_NAME=$($PSQL "SELECT name FROM services WHERE service_id=$SERVICE_ID_SELECTED" | xargs)
-      if [[ -z $SERVICE_NAME ]]; then
-        echo -e "\nThat’s not on our menu! Let’s pick something fabulous..."
+      # Prompt for phone number
+      echo -e "\nWhat's your phone number?"
+      read CUSTOMER_PHONE
+
+      # Check if customer exists
+      CUSTOMER_NAME=$($PSQL "SELECT name FROM customers WHERE phone='$CUSTOMER_PHONE'" | xargs)
+      if [[ -z $CUSTOMER_NAME ]]; then
+        # New customer: prompt for name
+        echo -e "\nI don't have a record for that phone number, what's your name?"
+        read CUSTOMER_NAME
+        $PSQL "INSERT INTO customers(name, phone) VALUES('$CUSTOMER_NAME', '$CUSTOMER_PHONE')"
+      fi
+
+      # Prompt for time
+      echo -e "\nWhat time would you like your $SERVICE_NAME, $CUSTOMER_NAME?"
+      read SERVICE_TIME
+
+      # Insert appointment
+      CUSTOMER_ID=$($PSQL "SELECT customer_id FROM customers WHERE phone='$CUSTOMER_PHONE'" | xargs)
+      INSERT_RESULT=$($PSQL "INSERT INTO appointments(customer_id, service_id, time) VALUES($CUSTOMER_ID, $SERVICE_ID_SELECTED, '$SERVICE_TIME')")
+      if [[ $INSERT_RESULT == "INSERT 0 1" ]]; then
+        echo "I have put you down for a $SERVICE_NAME at $SERVICE_TIME, $CUSTOMER_NAME."
       else
-        break
+        echo "Sorry, there was an error scheduling your appointment. Please try again."
+        exit 1
       fi
     fi
-  done
-}
-
-# Function to handle customer details and booking
-BOOK_APPOINTMENT() {
-  echo -e "\n📞 Let’s get you booked! What’s your phone number?"
-  read CUSTOMER_PHONE
-
-  # Check if customer exists
-  CUSTOMER_NAME=$($PSQL "SELECT name FROM customers WHERE phone='$CUSTOMER_PHONE'" | xargs)
-  if [[ -z $CUSTOMER_NAME ]]; then
-    echo -e "\nNew face, new grace! What’s your name, darling?"
-    read CUSTOMER_NAME
-    $PSQL "INSERT INTO customers(name, phone) VALUES('$CUSTOMER_NAME', '$CUSTOMER_PHONE')"
-  fi
-
-  echo -e "\n⏰ When would you like your $SERVICE_NAME, $CUSTOMER_NAME? (e.g., 2pm)"
-  read SERVICE_TIME
-
-  # Book the appointment
-  CUSTOMER_ID=$($PSQL "SELECT customer_id FROM customers WHERE phone='$CUSTOMER_PHONE'" | xargs)
-  INSERT_RESULT=$($PSQL "INSERT INTO appointments(customer_id, service_id, time) VALUES($CUSTOMER_ID, $SERVICE_ID_SELECTED, '$SERVICE_TIME')")
-  if [[ $INSERT_RESULT == "INSERT 0 1" ]]; then
-    echo "🎉 All set! You’re booked for a $SERVICE_NAME at $SERVICE_TIME, $CUSTOMER_NAME."
-  else
-    echo "Uh-oh! Something went wrong with your booking. Please try again!"
-    exit 1
   fi
 }
 
-# Main flow
-MAIN_SALON() {
-  GET_SERVICE
-  BOOK_APPOINTMENT
-}
-
-# Start the magic
-MAIN_SALON
+# Run script
+MAIN_MENU
